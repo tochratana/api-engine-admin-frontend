@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useGetProductQuery } from '@/service/apiSlide/apiSlide';
+import React from "react";
+import { useGetProductQuery } from "@/service/apiSlide/apiSlide";
 
 export default function ProductPage() {
   const { data, error, isLoading } = useGetProductQuery();

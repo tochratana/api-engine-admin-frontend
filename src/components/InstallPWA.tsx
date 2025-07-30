@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
 export const InstallPWA = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeinstallprompt', (e) => {
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeinstallprompt", (e) => {
         e.preventDefault();
         setDeferredPrompt(e);
         setIsInstallable(true);
       });
 
-      window.addEventListener('appinstalled', () => {
+      window.addEventListener("appinstalled", () => {
         setIsInstallable(false);
         setDeferredPrompt(null);
       });
     }
 
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('beforeinstallprompt', () => {});
-        window.removeEventListener('appinstalled', () => {});
+      if (typeof window !== "undefined") {
+        window.removeEventListener("beforeinstallprompt", () => {});
+        window.removeEventListener("appinstalled", () => {});
       }
     };
   }, []);
@@ -36,13 +36,13 @@ export const InstallPWA = () => {
     try {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        console.log('User accepted the install prompt');
+      if (outcome === "accepted") {
+        console.log("User accepted the install prompt");
       } else {
-        console.log('User dismissed the install prompt');
+        console.log("User dismissed the install prompt");
       }
     } catch (err) {
-      console.error('Error while installing:', err);
+      console.error("Error while installing:", err);
     }
   };
 
