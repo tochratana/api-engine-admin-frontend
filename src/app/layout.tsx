@@ -5,6 +5,12 @@ import ProviderStore from "@/service/store/ProviderStore";
 import { InstallPWA } from "@/components/InstallPWA";
 import Header from "@/components/header/Header";
 
+// TODO metadata
+export const metadata = {
+  title: "TaskApp - Manage Your Tasks Efficiently",
+  description: "A modern task management application built with Next.js",
+};
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -14,12 +20,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-export const metadata: Metadata = {
-  title: "Next.js PWA",
-  description: "A Progressive Web App built with Next.js",
-  manifest: "/manifest.json",
-};
 
 export const viewport = {
   themeColor: "#000000",
@@ -54,7 +54,7 @@ export default function RootLayout({
       >
         <ProviderStore>
           <Header />
-          {children}
+          <main className="min-h-screen bg-gray-50">{children}</main>
           <InstallPWA />
         </ProviderStore>
       </body>
