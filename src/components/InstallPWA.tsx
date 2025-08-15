@@ -90,7 +90,7 @@ export const InstallPWA = () => {
   if (!supportsPWA) {
     return (
       <div className="fixed bottom-4 right-4 bg-yellow-100 text-yellow-800 p-2 rounded-lg">
-        PWA not supported yet - waiting for browser criteria
+        {/* PWA not supported yet - waiting for browser criteria */}
       </div>
     );
   }
@@ -117,9 +117,9 @@ export const InstallPWA = () => {
         </svg>
         <span>Install App</span>
       </button>
-      <div className="text-sm text-gray-600 bg-white p-2 rounded-lg shadow">
+      {/* <div className="text-sm text-gray-600 bg-white p-2 rounded-lg shadow">
         💡 Install our app for a better experience!
-      </div>
+      </div> */}
     </div>
   );
 };

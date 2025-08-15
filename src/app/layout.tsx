@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ProviderStore from "@/service/store/ProviderStore";
+import SessionProviderClient from "@/components/auth/SessionProviderClient";
 import { InstallPWA } from "@/components/InstallPWA";
-import Header from "@/components/header/Header";
+import Header from "@/layouts/Header";
 
 // TODO metadata
 export const metadata = {
-  title: "TaskApp - Manage Your Tasks Efficiently",
-  description: "A modern task management application built with Next.js",
+  title: "endura - make your backend without coding",
+  description:
+    " endura is a no-code backend platform that allows you to create and manage your backend services without writing any code. It provides a user-friendly interface to design APIs, manage databases, and deploy your applications effortlessly.",
 };
 
 const geistSans = Geist({
@@ -53,9 +55,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ProviderStore>
-          <Header />
-          <main className="min-h-screen bg-gray-50">{children}</main>
-          <InstallPWA />
+          <SessionProviderClient>
+            <Header />
+            <main className="min-h-screen bg-gray-50">{children}</main>
+            <InstallPWA />
+          </SessionProviderClient>
         </ProviderStore>
       </body>
     </html>
