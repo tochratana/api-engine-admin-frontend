@@ -58,9 +58,9 @@ export default function FeaturesSection() {
           />
         </svg>
       ),
-      title: "Edge Functions",
+      title: "Personal Dashboard",
       description:
-        "Deploy serverless functions globally with automatic scaling and zero cold starts.",
+        "Customize your workspace with a personal dashboard that provides at-a-glance insights..",
     },
     {
       icon: (
@@ -82,46 +82,7 @@ export default function FeaturesSection() {
       description:
         "Secure file storage with CDN delivery, image transformations, and automatic backups.",
     },
-    {
-      icon: (
-        <svg
-          className="h-8 w-8"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-      ),
-      title: "Real-time",
-      description:
-        "Listen to database changes in real-time with WebSocket connections and automatic syncing.",
-    },
-    {
-      icon: (
-        <svg
-          className="h-8 w-8"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-          />
-        </svg>
-      ),
-      title: "Vector Embeddings",
-      description:
-        "AI-powered search and recommendations with vector similarity and machine learning.",
-    },
+   
   ];
 
   return (
@@ -129,9 +90,9 @@ export default function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white sm:text-5xl mb-4">
-            Everything you need to
-            <span className="block text-primary">build and scale</span>
+          <h2 className="text-4xl font-bold text-primary dark:text-white sm:text-5xl mb-4">
+            Explore The Benefits of Our Features
+           
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
             Endura provides all the backend services you need to build modern
@@ -141,41 +102,32 @@ export default function FeaturesSection() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
             <div
               key={index}
-              className="group relative p-8 bg-gray-50 dark:bg-gray-800 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              className="group relative p-8 bg-gray-50 dark:bg-gray-800 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-xl hover:shadow-primary/10"
             >
-              {/* Icon */}
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-xl mb-6 group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                {feature.icon}
+              {/* Radial hover effect background - starts from icon position */}
+              <div className="absolute top-8 left-8 w-16 h-16 bg-primary rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-700 group-hover:scale-[20] group-hover:rounded-full origin-center"></div>
+              
+              {/* Content wrapper with higher z-index */}
+              <div className="relative z-10">
+                {/* Icon */}
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-xl mb-6 group-hover:bg-white/20 group-hover:text-white transition-all duration-500 relative z-20">
+                  {feature.icon}
+                </div>
+
+                {/* Content */}
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-white mb-3 transition-colors duration-500">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 group-hover:text-white/90 leading-relaxed transition-colors duration-500">
+                  {feature.description}
+                </p>
               </div>
-
-              {/* Content */}
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                {feature.description}
-              </p>
-
-              {/* Hover effect overlay */}
-              <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary/20 rounded-2xl transition-all duration-300"></div>
             </div>
           ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <div className="text-center mt-16">
-          <div className="inline-flex flex-col sm:flex-row gap-4">
-            <button className="bg-primary hover:bg-primary/90 text-white font-semibold px-8 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-primary/25">
-              Get Started Free
-            </button>
-            <button className="border border-gray-300 dark:border-gray-600 hover:border-primary text-gray-700 dark:text-gray-300 hover:text-primary font-semibold px-8 py-3 rounded-lg transition-all duration-200 transform hover:scale-105">
-              View Documentation
-            </button>
-          </div>
         </div>
       </div>
     </section>

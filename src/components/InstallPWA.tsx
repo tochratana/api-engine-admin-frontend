@@ -23,7 +23,6 @@ export const InstallPWA = () => {
   const [isInstalled, setIsInstalled] = useState(false);
   const [promptInstall, setPromptInstall] =
     useState<BeforeInstallPromptEvent | null>(null);
-
   useEffect(() => {
     console.log("PWA Component Mounted");
 
