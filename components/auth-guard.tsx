@@ -19,6 +19,11 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     console.log("[v0] AuthGuard: Checking authentication state")
+
+    if (typeof window === "undefined") {
+      return
+    }
+
     const storedToken = localStorage.getItem("token")
     const storedUser = localStorage.getItem("user")
 
@@ -43,7 +48,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [token, user, router, dispatch])
 
-  if (isLoading && !token && !localStorage.getItem("token")) {
+  if (isLoading && !token && (typeof window === "undefined" || !localStorage.getItem("token"))) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

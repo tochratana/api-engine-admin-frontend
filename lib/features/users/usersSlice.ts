@@ -47,7 +47,7 @@ export const fetchUsers = createAsyncThunk(
     try {
       console.log("[v0] Fetching users from API")
 
-      const data = await apiRequest("https://api.api-ngin.oudom.dev/api/admin/users")
+      const data = await apiRequest("/admin/users")
       console.log("[v0] Users API response:", data)
 
       return {
