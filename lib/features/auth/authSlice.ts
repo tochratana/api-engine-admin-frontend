@@ -1,19 +1,19 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit"
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 interface User {
-  id: string
-  email: string
-  name: string
-  username?: string
-  firstName?: string
-  lastName?: string
+  id: string;
+  email: string;
+  name: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface AuthState {
-  user: User | null
-  token: string | null
-  isLoading: boolean
-  error: string | null
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const initialState: AuthState = {
@@ -21,94 +21,130 @@ const initialState: AuthState = {
   token: null,
   isLoading: false,
   error: null,
-}
+};
 
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
-  async (credentials: { usernameOrEmail: string; password: string }, { rejectWithValue }) => {
+  async (
+    credentials: { usernameOrEmail: string; password: string },
+    { rejectWithValue }
+  ) => {
     try {
-      console.log("[v0] Making API call to login endpoint")
+      console.log("[v0] Making API call to login endpoint");
 
-      const response = await fetch("https://api.api-ngin.oudom.dev/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(credentials),
-      })
+      const response = await fetch(
+        "https://api.api-ngin.oudom.dev/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(credentials),
+        }
+      );
 
-      console.log("[v0] API response status:", response.status)
+      console.log("[v0] API response status:", response.status);
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.log("[v0] API error response:", errorData)
-        return rejectWithValue(errorData.message || "Login failed")
+        const errorData = await response.json();
+        console.log("[v0] API error response:", errorData);
+        return rejectWithValue(errorData.message || "Login failed");
       }
 
-      const data = await response.json()
-      console.log("[v0] API success response:", data)
+      const data = await response.json();
+      console.log("[v0] API success response:", data);
+
+      // Normalize token from common field names returned by different backends
+      const token =
+        data?.token ??
+        data?.accessToken ??
+        data?.access_token ??
+        data?.jwt ??
+        data?.idToken ??
+        data?.id_token ??
+        (data?.data &&
+          (data.data.token || data.data.accessToken || data.data.access_token));
+
+      console.log(
+        "[v0] Detected login token:",
+        token ? `${String(token).substring(0, 20)}...` : "(none)"
+      );
+
+      if (!token) {
+        console.log(
+          "[v0] Login response did not include a token; rejecting login"
+        );
+        return rejectWithValue(
+          "Authentication token missing from server response"
+        );
+      }
 
       const userInfo = {
         id: data.user?.id || data.userId || "unknown",
         email: credentials.usernameOrEmail,
-        name: data.user?.name || data.user?.displayName || credentials.usernameOrEmail.split("@")[0],
+        name:
+          data.user?.name ||
+          data.user?.displayName ||
+          credentials.usernameOrEmail.split("@")[0],
         username: data.user?.username,
         firstName: data.user?.firstName,
         lastName: data.user?.lastName,
-      }
+      };
 
+      // Return a normalized payload that always includes `token` and `user`
       return {
+        token,
         ...data,
         user: userInfo,
-      }
+      };
     } catch (error) {
-      console.log("[v0] Network error:", error)
-      return rejectWithValue("Network error occurred")
+      console.log("[v0] Network error:", error);
+      return rejectWithValue("Network error occurred");
     }
-  },
-)
+  }
+);
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
     logout: (state) => {
-      state.user = null
-      state.token = null
-      state.error = null
+      state.user = null;
+      state.token = null;
+      state.error = null;
       if (typeof window !== "undefined") {
-        localStorage.removeItem("token")
+        localStorage.removeItem("token");
       }
     },
     clearError: (state) => {
-      state.error = null
+      state.error = null;
     },
     setUserFromStorage: (state, action) => {
-      state.user = action.payload.user
-      state.token = action.payload.token
+      state.user = action.payload.user;
+      state.token = action.payload.token;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(loginUser.pending, (state) => {
-        state.isLoading = true
-        state.error = null
+        state.isLoading = true;
+        state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.user = action.payload.user
-        state.token = action.payload.token
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
         if (typeof window !== "undefined") {
-          localStorage.setItem("token", action.payload.token)
-          localStorage.setItem("user", JSON.stringify(action.payload.user))
+          localStorage.setItem("token", action.payload.token);
+          localStorage.setItem("user", JSON.stringify(action.payload.user));
         }
       })
       .addCase(loginUser.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload as string
-      })
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
   },
-})
+});
 
-export const { logout, clearError, setUserFromStorage } = authSlice.actions
-export default authSlice.reducer
+export const { logout, clearError, setUserFromStorage } = authSlice.actions;
+export default authSlice.reducer;

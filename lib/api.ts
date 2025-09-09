@@ -18,11 +18,16 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
     token ? `${token.substring(0, 20)}...` : "null"
   );
 
-  const headers = {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+  // Ensure headers are a plain object and use lowercase `authorization` key
+  const extraHeaders = (options.headers || {}) as Record<string, string>;
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...extraHeaders,
   };
+
+  if (token) {
+    headers["authorization"] = `Bearer ${token}`;
+  }
 
   let fullUrl: string;
   if (url.startsWith("http")) {
@@ -37,7 +42,7 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
 
   console.log("[v0] Making API request to:", fullUrl);
   console.log("[v0] Request headers:", headers);
-  console.log("[v0] Authorization header:", headers.Authorization || "Not set");
+  console.log("[v0] Authorization header:", headers.authorization || "Not set");
 
   const response = await fetch(fullUrl, {
     ...options,
