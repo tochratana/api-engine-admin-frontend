@@ -143,6 +143,50 @@ export const ratingsApi = createApi({
       providesTags: ["Rating"],
     }),
 
+    // NEW: Fetch reviews by star rating
+    fetchReviewsByStar: builder.query<
+      RatingsResponse,
+      { star: number; page?: number; size?: number }
+    >({
+      query: ({ star, page = 1, size = 10 }) => {
+        const params = new URLSearchParams({
+          page: (page - 1).toString(),
+          size: size.toString(),
+          sortBy: "id",
+          sortDir: "desc",
+        });
+
+        return `/reviews/star/${star}?${params.toString()}`;
+      },
+      transformResponse: (response: ApiPaginatedResponse): RatingsResponse => {
+        const transformedRatings = response.content.map((item) => ({
+          ...item,
+          rating: item.star,
+          comment: item.content,
+          user: item.user || {
+            id: item.id.toString(),
+            name: item.username,
+            email: `${item.username}@example.com`,
+          },
+          project: item.project || {
+            id: "1",
+            name: "Default Project",
+          },
+          sentiment: item.sentiment || "neutral",
+          status: item.status || "approved",
+          createdAt: item.createdAt || new Date().toISOString(),
+        }));
+
+        return {
+          ratings: transformedRatings,
+          totalPages: response.totalPages,
+          totalRatings: response.totalElements,
+          currentPage: response.number + 1,
+        };
+      },
+      providesTags: ["Rating"],
+    }),
+
     // Fetch ratings by project
     fetchRatingsByProject: builder.query<Rating[], string>({
       query: (projectId) => `/reviews/project/${projectId}`,
@@ -154,7 +198,25 @@ export const ratingsApi = createApi({
       query: (username) => `/reviews/user/${encodeURIComponent(username)}`,
       transformResponse: (response: Rating[] | ApiPaginatedResponse) => {
         // Handle both direct array response and paginated response
-        const reviews = Array.isArray(response) ? response : response.content;
+        let reviews: Rating[] = [];
+
+        if (Array.isArray(response)) {
+          reviews = response;
+        } else if (
+          response &&
+          typeof response === "object" &&
+          "content" in response
+        ) {
+          reviews = response.content || [];
+        } else {
+          // If response is not in expected format, return empty array
+          console.warn(
+            "Unexpected response format for fetchReviewsByUsername:",
+            response
+          );
+          reviews = [];
+        }
+
         return reviews.map((item) => ({
           ...item,
           rating: item.star,
@@ -238,6 +300,8 @@ export const ratingsApi = createApi({
 
 export const {
   useFetchRatingsQuery,
+  useFetchReviewsByStarQuery,
+  useLazyFetchReviewsByStarQuery,
   useFetchRatingsByProjectQuery,
   useFetchReviewsByUsernameQuery,
   useLazyFetchReviewsByUsernameQuery,

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import {
   useFetchRatingsQuery,
+  useFetchReviewsByStarQuery,
+  useLazyFetchReviewsByStarQuery,
   useLazyFetchReviewsByUsernameQuery,
   useDeleteRatingMutation,
 } from "@/lib/features/ratings/ratingsApi";
@@ -37,11 +39,12 @@ import {
   Eye,
   User,
   Loader2,
+  Filter,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Rating {
-  id: string;
+  id: number; // Updated to number
   user: {
     id: string;
     name: string;
@@ -58,6 +61,10 @@ interface Rating {
   createdAt: string;
   respondedAt?: string;
   adminResponse?: string;
+  // Original API fields
+  username: string;
+  content: string;
+  star: number;
 }
 
 export default function RatingsPage() {
@@ -70,6 +77,7 @@ export default function RatingsPage() {
     rating: "all",
     sentiment: "all",
     status: "all",
+    starFilter: null as number | null, // NEW: Star filter state
   });
 
   // Dialog states
@@ -99,13 +107,44 @@ export default function RatingsPage() {
 
   const [usernameInput, setUsernameInput] = useState("");
 
-  // RTK Query hooks
+  // RTK Query hooks - Use star filter when active
+  const shouldUseStarFilter = filters.starFilter !== null;
+
   const {
     data: ratingsData,
-    isLoading,
-    error,
-    refetch,
-  } = useFetchRatingsQuery(filters);
+    isLoading: ratingsLoading,
+    error: ratingsError,
+    refetch: refetchRatings,
+  } = useFetchRatingsQuery(
+    {
+      page: filters.page,
+      search: filters.search,
+      rating: filters.rating,
+      sentiment: filters.sentiment,
+      status: filters.status,
+      size: 10,
+    },
+    { skip: shouldUseStarFilter }
+  );
+
+  const {
+    data: starRatingsData,
+    isLoading: starRatingsLoading,
+    error: starRatingsError,
+    refetch: refetchStarRatings,
+  } = useFetchReviewsByStarQuery(
+    {
+      star: filters.starFilter!,
+      page: filters.page,
+      size: 10,
+    },
+    { skip: !shouldUseStarFilter }
+  );
+
+  // Use the appropriate data source
+  const currentData = shouldUseStarFilter ? starRatingsData : ratingsData;
+  const isLoading = shouldUseStarFilter ? starRatingsLoading : ratingsLoading;
+  const error = shouldUseStarFilter ? starRatingsError : ratingsError;
 
   const [
     fetchUserReviews,
@@ -116,10 +155,10 @@ export default function RatingsPage() {
     useDeleteRatingMutation();
 
   // Extract data from response
-  const ratings = ratingsData?.ratings || [];
-  const totalPages = ratingsData?.totalPages || 1;
-  const totalRatings = ratingsData?.totalRatings || 0;
-  const currentPage = ratingsData?.currentPage || 1;
+  const ratings = currentData?.ratings || [];
+  const totalPages = currentData?.totalPages || 1;
+  const totalRatings = currentData?.totalRatings || 0;
+  const currentPage = currentData?.currentPage || 1;
 
   // Filter handlers
   const handleSearch = (term: string) => {
@@ -127,7 +166,32 @@ export default function RatingsPage() {
   };
 
   const handleRatingFilter = (rating: string) => {
-    setFilters((prev) => ({ ...prev, rating, page: 1 }));
+    setFilters((prev) => ({
+      ...prev,
+      rating,
+      page: 1,
+      // Clear star filter when using rating filter
+      starFilter: rating === "all" ? null : null,
+    }));
+  };
+
+  // NEW: Star filter handler
+  const handleStarFilter = (star: string) => {
+    if (star === "all") {
+      setFilters((prev) => ({
+        ...prev,
+        starFilter: null,
+        page: 1,
+        rating: "all", // Reset rating filter when clearing star filter
+      }));
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        starFilter: parseInt(star),
+        page: 1,
+        rating: "all", // Reset rating filter when using star filter
+      }));
+    }
   };
 
   const handleSentimentFilter = (sentiment: string) => {
@@ -143,7 +207,11 @@ export default function RatingsPage() {
   };
 
   const handleRefresh = () => {
-    refetch();
+    if (shouldUseStarFilter) {
+      refetchStarRatings();
+    } else {
+      refetchRatings();
+    }
   };
 
   // Action handlers
@@ -171,6 +239,8 @@ export default function RatingsPage() {
           description: "Review deleted successfully",
         });
         setDeleteDialog({ open: false, rating: null });
+        // Refresh the appropriate data
+        handleRefresh();
       } catch (error) {
         toast({
           title: "Error",
@@ -184,16 +254,32 @@ export default function RatingsPage() {
   const handleFetchUserReviews = async () => {
     if (usernameInput.trim()) {
       try {
-        await fetchUserReviews(usernameInput.trim()).unwrap();
-        setUserReviewsDialog({ open: true, username: usernameInput.trim() });
-        setUsernameInput("");
+        const result = await fetchUserReviews(usernameInput.trim()).unwrap();
+        // Ensure result is an array before opening dialog
+        if (Array.isArray(result)) {
+          setUserReviewsDialog({ open: true, username: usernameInput.trim() });
+          setUsernameInput("");
+        } else {
+          toast({
+            title: "Warning",
+            description: "Received unexpected data format from server",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
+        console.error("Error fetching user reviews:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch user reviews",
+          description: error?.data?.message || "Failed to fetch user reviews",
           variant: "destructive",
         });
       }
+    } else {
+      toast({
+        title: "Warning",
+        description: "Please enter a username",
+        variant: "destructive",
+      });
     }
   };
 
@@ -251,10 +337,12 @@ export default function RatingsPage() {
     {
       key: "user" as keyof Rating,
       label: "User",
-      render: (user: Rating["user"]) => (
+      render: (user: Rating["user"], rating: Rating) => (
         <div>
-          <p className="font-medium">{user.name}</p>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+          <p className="font-medium">{user?.name || rating.username}</p>
+          <p className="text-sm text-muted-foreground">
+            {user?.email || `${rating.username}@example.com`}
+          </p>
         </div>
       ),
     },
@@ -262,29 +350,37 @@ export default function RatingsPage() {
       key: "project" as keyof Rating,
       label: "Project",
       render: (project: Rating["project"]) => (
-        <span className="font-medium">{project.name}</span>
+        <span className="font-medium">
+          {project?.name || "Default Project"}
+        </span>
       ),
     },
     {
       key: "rating" as keyof Rating,
       label: "Rating",
-      render: (value: number) => <StarRating rating={value} showNumber />,
+      render: (value: number, rating: Rating) => {
+        const starValue = value || rating.star;
+        return <StarRating rating={starValue} showNumber />;
+      },
     },
     {
       key: "comment" as keyof Rating,
       label: "Comment",
-      render: (value: string) => (
-        <div className="max-w-[300px]">
-          <p className="text-sm truncate" title={value}>
-            {value}
-          </p>
-        </div>
-      ),
+      render: (value: string, rating: Rating) => {
+        const commentText = value || rating.content;
+        return (
+          <div className="max-w-[300px]">
+            <p className="text-sm truncate" title={commentText}>
+              {commentText}
+            </p>
+          </div>
+        );
+      },
     },
     {
       key: "sentiment" as keyof Rating,
       label: "Sentiment",
-      render: (value: string, rating: Rating) => {
+      render: (value: string) => {
         const Icon = getSentimentIcon(value);
         return (
           <Badge
@@ -300,7 +396,7 @@ export default function RatingsPage() {
     {
       key: "status" as keyof Rating,
       label: "Status",
-      render: (value: string, rating: Rating) => {
+      render: (value: string) => {
         const Icon = getStatusIcon(value);
         return (
           <Badge
@@ -318,7 +414,7 @@ export default function RatingsPage() {
       label: "Date",
       render: (value: string) => (
         <span className="text-sm text-muted-foreground">
-          {new Date(value).toLocaleDateString()}
+          {value ? new Date(value).toLocaleDateString() : "Recently"}
         </span>
       ),
     },
@@ -361,6 +457,16 @@ export default function RatingsPage() {
     { value: "1", label: "1 Star" },
   ];
 
+  // NEW: Star filter options
+  const starFilterOptions = [
+    { value: "all", label: "All Stars" },
+    { value: "5", label: "5 Stars Only" },
+    { value: "4", label: "4 Stars Only" },
+    { value: "3", label: "3 Stars Only" },
+    { value: "2", label: "2 Stars Only" },
+    { value: "1", label: "1 Star Only" },
+  ];
+
   const sentimentOptions = [
     { value: "all", label: "All Sentiments" },
     { value: "positive", label: "Positive" },
@@ -378,7 +484,8 @@ export default function RatingsPage() {
   // Calculate stats
   const averageRating =
     ratings.length > 0
-      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+      ? ratings.reduce((sum, r) => sum + (r.rating || r.star), 0) /
+        ratings.length
       : 0;
   const pendingRatings = ratings.filter((r) => r.status === "pending").length;
   const positiveRatings = ratings.filter(
@@ -394,6 +501,11 @@ export default function RatingsPage() {
           </h1>
           <p className="text-muted-foreground mt-2">
             Monitor and manage user feedback and ratings
+            {filters.starFilter && (
+              <span className="ml-2 text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                Filtered by {filters.starFilter} stars
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -487,7 +599,7 @@ export default function RatingsPage() {
           <AlertDescription>
             {typeof error === "object" && "message" in error
               ? error.message
-              : "An error occurred"}
+              : "An error occurred while loading ratings"}
           </AlertDescription>
         </Alert>
       )}
@@ -498,10 +610,17 @@ export default function RatingsPage() {
             <CardTitle>All Ratings</CardTitle>
             <div className="flex items-center space-x-2">
               <FilterSelect
+                placeholder="Filter by star"
+                value={filters.starFilter?.toString() || "all"}
+                onValueChange={handleStarFilter}
+                options={starFilterOptions}
+              />
+              <FilterSelect
                 placeholder="Filter by rating"
                 value={filters.rating}
                 onValueChange={handleRatingFilter}
                 options={ratingOptions}
+                disabled={filters.starFilter !== null}
               />
               <FilterSelect
                 placeholder="Filter by sentiment"
@@ -552,7 +671,8 @@ export default function RatingsPage() {
             <DialogTitle>Delete Review</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this review from{" "}
-              {deleteDialog.rating?.user.name}? This action cannot be undone.
+              {deleteDialog.rating?.user?.name || deleteDialog.rating?.username}
+              ? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -594,21 +714,25 @@ export default function RatingsPage() {
                 <div>
                   <Label>User</Label>
                   <p className="text-sm font-medium">
-                    {viewDialog.rating.user.name}
+                    {viewDialog.rating.user?.name || viewDialog.rating.username}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {viewDialog.rating.user.email}
+                    {viewDialog.rating.user?.email ||
+                      `${viewDialog.rating.username}@example.com`}
                   </p>
                 </div>
                 <div>
                   <Label>Project</Label>
                   <p className="text-sm font-medium">
-                    {viewDialog.rating.project.name}
+                    {viewDialog.rating.project?.name || "Default Project"}
                   </p>
                 </div>
                 <div>
                   <Label>Rating</Label>
-                  <StarRating rating={viewDialog.rating.rating} showNumber />
+                  <StarRating
+                    rating={viewDialog.rating.rating || viewDialog.rating.star}
+                    showNumber
+                  />
                 </div>
                 <div>
                   <Label>Status</Label>
@@ -622,7 +746,7 @@ export default function RatingsPage() {
               <div>
                 <Label>Comment</Label>
                 <p className="text-sm mt-1 p-3 bg-muted rounded-md">
-                  {viewDialog.rating.comment}
+                  {viewDialog.rating.comment || viewDialog.rating.content}
                 </p>
               </div>
               {viewDialog.rating.adminResponse && (
@@ -635,7 +759,9 @@ export default function RatingsPage() {
               )}
               <div className="text-xs text-muted-foreground">
                 Created:{" "}
-                {new Date(viewDialog.rating.createdAt).toLocaleString()}
+                {viewDialog.rating.createdAt
+                  ? new Date(viewDialog.rating.createdAt).toLocaleString()
+                  : "Recently"}
                 {viewDialog.rating.respondedAt && (
                   <span className="ml-4">
                     Responded:{" "}
@@ -675,7 +801,10 @@ export default function RatingsPage() {
                   <div key={review.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <StarRating rating={review.rating} showNumber />
+                        <StarRating
+                          rating={review.rating || review.star}
+                          showNumber
+                        />
                         <Badge
                           variant={getSentimentBadgeVariant(review.sentiment)}
                         >
@@ -686,14 +815,16 @@ export default function RatingsPage() {
                         </Badge>
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(review.createdAt).toLocaleDateString()}
+                        {review.createdAt
+                          ? new Date(review.createdAt).toLocaleDateString()
+                          : "Recently"}
                       </span>
                     </div>
                     <p className="text-sm font-medium mb-1">
-                      Project: {review.project.name}
+                      Project: {review.project?.name || "Default Project"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {review.comment}
+                      {review.comment || review.content}
                     </p>
                   </div>
                 ))}
