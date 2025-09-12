@@ -6,6 +6,7 @@ import {
   useGetProjectWithUserQuery,
   useDeleteProjectMutation,
   useCreateProjectMutation,
+  useGetProjectStatisticsQuery,
 } from "@/lib/features/projects/projectsApi";
 import { DataTable } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
@@ -32,24 +33,33 @@ import {
   Trash2,
   Eye,
   Loader2,
+  Calendar,
+  Database,
+  Server,
+  User,
+  FileText,
+  Cpu,
+  HardDrive,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Project {
-  id: string;
-  name: string;
+  projectUuid: string;
+  projectName: string;
   description: string;
-  owner: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  status: "active" | "inactive" | "completed" | "archived";
-  type: "web" | "mobile" | "api" | "database";
+  ownerUserUuid: string;
   createdAt: string;
   updatedAt: string;
-  storageUsed: number;
-  apiCalls: number;
+  owner: string;
+  totalStorageBytes: number;
+  postgresBytes: number;
+  mongoBytes: number;
+  totalApiCalls: number;
+  restRequests: number;
+  authRequests: number;
+  lastActivityAt: string;
+  status: "ACTIVE" | "INACTIVE" | "COMPLETED" | "ARCHIVED";
+  hasUsageData: boolean;
 }
 
 export default function ProjectsPage() {
@@ -83,16 +93,28 @@ export default function ProjectsPage() {
     error,
     isLoading,
     refetch,
-  } = useGetProjectsQuery({
+  } = useFetchProjectsQuery({
     page: currentPage,
     search: searchTerm,
     status: statusFilter,
     type: typeFilter,
   });
 
+  // const {
+  //   data: projectsData,
+  //   error,
+  //   isLoading,
+  //   refetch,
+  // } = useGetProjectStatisticsQuery({
+  //   page:currentPage,
+  //   search: searchTerm,
+  //   status: statusFilter,
+  //   type: typeFilter,
+  // });
+
   const { data: projectWithUser, isLoading: projectWithUserLoading } =
-    useGetProjectWithUserQuery(viewDialog.project?.id || "", {
-      skip: !viewDialog.project?.id,
+    useGetProjectWithUserQuery(viewDialog.project?.projectUuid || "", {
+      skip: !viewDialog.project?.projectUuid,
     });
 
   const [deleteProject, { isLoading: deleteLoading }] =
@@ -134,7 +156,7 @@ export default function ProjectsPage() {
   const handleEdit = (project: Project) => {
     toast({
       title: "Edit Project",
-      description: `Editing project ${project.name}`,
+      description: `Editing project ${project.projectName}`,
     });
   };
 
@@ -145,7 +167,7 @@ export default function ProjectsPage() {
   const confirmDelete = async () => {
     if (deleteDialog.project) {
       try {
-        await deleteProject(deleteDialog.project.id).unwrap();
+        await deleteProject(deleteDialog.project.projectUuid).unwrap();
         toast({
           title: "Success",
           description: "Project deleted successfully",
@@ -183,92 +205,95 @@ export default function ProjectsPage() {
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case "active":
+      case "ACTIVE":
         return "default";
-      case "completed":
+      case "COMPLETED":
         return "secondary";
-      case "inactive":
+      case "INACTIVE":
         return "destructive";
-      case "archived":
+      case "ARCHIVED":
         return "outline";
       default:
         return "secondary";
     }
   };
 
-  const getTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case "web":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "mobile":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "api":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      case "database":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
-    }
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return "0 Bytes";
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
   };
 
   const columns = [
     {
-      key: "name" as keyof Project,
+      key: "projectName" as keyof Project,
       label: "Project Name",
       render: (value: string, project: Project) => (
-        <div>
-          <p className="font-medium">{value}</p>
-          <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-            {project.description}
-          </p>
+        <div className="min-w-[180px]">
+          <p className="font-medium truncate">{value}</p>
+          {project.description && (
+            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+              {project.description}
+            </p>
+          )}
         </div>
       ),
     },
     {
       key: "owner" as keyof Project,
       label: "Owner",
-      render: (owner: Project["owner"]) => (
-        <div>
-          <p className="font-medium">{owner.name}</p>
-          <p className="text-sm text-muted-foreground">{owner.email}</p>
-        </div>
-      ),
-    },
-    {
-      key: "type" as keyof Project,
-      label: "Type",
       render: (value: string) => (
-        <Badge className={getTypeBadgeColor(value)}>
-          {value.toUpperCase()}
-        </Badge>
+        <div className="flex items-center">
+          <User className="h-4 w-4 mr-2 text-muted-foreground" />
+          <span className="font-medium">{value}</span>
+        </div>
       ),
     },
     {
       key: "status" as keyof Project,
       label: "Status",
       render: (value: string) => (
-        <Badge variant={getStatusBadgeVariant(value)}>{value}</Badge>
+        <Badge variant={getStatusBadgeVariant(value)}>
+          {value.charAt(0) + value.slice(1).toLowerCase()}
+        </Badge>
       ),
     },
     {
-      key: "storageUsed" as keyof Project,
+      key: "totalStorageBytes" as keyof Project,
       label: "Storage",
-      render: (value: number) => <span className="text-sm">{value} GB</span>,
+      render: (value: number) => (
+        <div className="flex items-center">
+          <HardDrive className="h-4 w-4 mr-2 text-muted-foreground" />
+          <span className="text-sm">{formatBytes(value)}</span>
+        </div>
+      ),
     },
     {
-      key: "apiCalls" as keyof Project,
+      key: "totalApiCalls" as keyof Project,
       label: "API Calls",
       render: (value: number) => (
-        <span className="text-sm">{value.toLocaleString()}</span>
+        <div className="flex items-center">
+          <Cpu className="h-4 w-4 mr-2 text-muted-foreground" />
+          <span className="text-sm">{value.toLocaleString()}</span>
+        </div>
       ),
     },
     {
-      key: "updatedAt" as keyof Project,
-      label: "Last Updated",
+      key: "lastActivityAt" as keyof Project,
+      label: "Last Activity",
       render: (value: string) => (
-        <span className="text-sm text-muted-foreground">
-          {new Date(value).toLocaleDateString()}
-        </span>
+        <div className="flex items-center">
+          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {new Date(value).toLocaleDateString()}
+          </span>
+        </div>
       ),
     },
     {
@@ -280,19 +305,21 @@ export default function ProjectsPage() {
             variant="outline"
             size="sm"
             onClick={() => handleView(project)}
+            title="View details"
           >
-            <Eye className="h-3 w-3" />
+            <Eye className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleDelete(project)}
             disabled={deleteLoading}
+            title="Delete project"
           >
             {deleteLoading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-4 w-4" />
             )}
           </Button>
         </div>
@@ -302,10 +329,10 @@ export default function ProjectsPage() {
 
   const statusOptions = [
     { value: "all", label: "All Status" },
-    { value: "active", label: "Active" },
-    { value: "completed", label: "Completed" },
-    { value: "inactive", label: "Inactive" },
-    { value: "archived", label: "Archived" },
+    { value: "ACTIVE", label: "Active" },
+    { value: "COMPLETED", label: "Completed" },
+    { value: "INACTIVE", label: "Inactive" },
+    { value: "ARCHIVED", label: "Archived" },
   ];
 
   const typeOptions = [
@@ -316,11 +343,14 @@ export default function ProjectsPage() {
     { value: "database", label: "Database" },
   ];
 
-  const activeProjects = projects.filter((p) => p.status === "active").length;
+  const activeProjects = projects.filter((p) => p.status === "ACTIVE").length;
   const completedProjects = projects.filter(
-    (p) => p.status === "completed"
+    (p) => p.status === "COMPLETED"
   ).length;
-  const totalStorage = projects.reduce((sum, p) => sum + p.storageUsed, 0);
+  const totalStorage = projects.reduce(
+    (sum, p) => sum + p.totalStorageBytes,
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -398,7 +428,7 @@ export default function ProjectsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {totalStorage.toFixed(1)} GB
+              {formatBytes(totalStorage)}
             </div>
             <p className="text-xs text-muted-foreground">Across all projects</p>
           </CardContent>
@@ -467,9 +497,9 @@ export default function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{deleteDialog.project?.name}"?
-              This action cannot be undone and will permanently remove all
-              project data.
+              Are you sure you want to delete "
+              {deleteDialog.project?.projectName}"? This action cannot be undone
+              and will permanently remove all project data.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -497,72 +527,181 @@ export default function ProjectsPage() {
         open={viewDialog.open}
         onOpenChange={(open) => setViewDialog({ open, project: null })}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Project Details</DialogTitle>
-            <DialogDescription>
-              Detailed information about {viewDialog.project?.name}
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <FolderOpen className="h-5 w-5 text-primary" />
+              {viewDialog.project?.projectName}
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Project details and usage information
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {projectWithUserLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : projectWithUser ? (
-              <div className="grid gap-4">
-                <div>
-                  <h4 className="font-semibold">Project Information</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {projectWithUser.description}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Status</label>
-                    <p className="text-sm">{projectWithUser.status}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Type</label>
-                    <p className="text-sm">{projectWithUser.type}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Storage Used</label>
-                    <p className="text-sm">{projectWithUser.storageUsed} GB</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">API Calls</label>
-                    <p className="text-sm">
-                      {projectWithUser.apiCalls?.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                {projectWithUser.owner && (
-                  <div>
-                    <h4 className="font-semibold">Owner Details</h4>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-sm">
-                        <span className="font-medium">Name:</span>{" "}
-                        {projectWithUser.owner.name}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">Email:</span>{" "}
-                        {projectWithUser.owner.email}
-                      </p>
+
+          {viewDialog.project && (
+            <div className="space-y-8 py-4">
+              {/* Project Information Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Project Information
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">Project ID:</span>
+                      <span className="text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                        {viewDialog.project.projectUuid}
+                      </span>
                     </div>
+
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">Status:</span>
+                      <Badge
+                        variant={getStatusBadgeVariant(
+                          viewDialog.project.status
+                        )}
+                        className="px-2 py-1"
+                      >
+                        {viewDialog.project.status.charAt(0) +
+                          viewDialog.project.status.slice(1).toLowerCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">Owner:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {viewDialog.project.owner}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">Created:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(
+                          viewDialog.project.createdAt
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">Updated:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(
+                          viewDialog.project.updatedAt
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-2 border-b">
+                      <span className="text-sm font-medium">
+                        Last Activity:
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(
+                          viewDialog.project.lastActivityAt
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {viewDialog.project.description && (
+                  <div className="pt-4">
+                    <span className="text-sm font-medium block mb-2">
+                      Description:
+                    </span>
+                    <p className="text-sm text-muted-foreground p-4 bg-muted rounded-lg border">
+                      {viewDialog.project.description}
+                    </p>
                   </div>
                 )}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No additional details available.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
+
+              {/* Storage Information Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
+                  <Database className="h-5 w-5 text-primary" />
+                  Storage Usage
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {formatBytes(viewDialog.project.totalStorageBytes)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Total Storage
+                    </div>
+                  </div>
+
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {formatBytes(viewDialog.project.postgresBytes)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      PostgreSQL
+                    </div>
+                  </div>
+
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {formatBytes(viewDialog.project.mongoBytes)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      MongoDB
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Usage Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
+                  <Server className="h-5 w-5 text-primary" />
+                  API Usage
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {viewDialog.project.totalApiCalls.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Total API Calls
+                    </div>
+                  </div>
+
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {viewDialog.project.restRequests.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      REST Requests
+                    </div>
+                  </div>
+
+                  <div className="bg-muted p-4 rounded-lg border text-center transition-colors hover:bg-muted/80">
+                    <div className="text-2xl font-bold text-foreground">
+                      {viewDialog.project.authRequests.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Auth Requests
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t pt-4">
             <Button
               variant="outline"
               onClick={() => setViewDialog({ open: false, project: null })}
+              className="px-6"
             >
               Close
             </Button>

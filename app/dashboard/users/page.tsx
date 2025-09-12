@@ -278,22 +278,39 @@ export default function UsersPage() {
     {
       key: "roles" as keyof User,
       label: "Roles",
-      render: (value: string[]) => (
-        <div className="flex flex-wrap gap-1">
-          {value.slice(0, 2).map((role, index) => (
-            <Badge key={index} variant="secondary" className="text-xs">
-              {role === "ADMIN"
-                ? "Admin"
-                : role.replace("default-roles-", "").replace("_", " ")}
+      // render: (value: string[]) => (
+      //   <div className="flex flex-wrap gap-1">
+      //     {value.slice(0, 2).map((role, index) => (
+      //       <Badge key={index} variant="secondary" className="text-xs">
+      //         {role === "ADMIN"
+      //           ? "Admin"
+      //           : role.replace("default-roles-", "").replace("_", " ")}
+      //       </Badge>
+      //     ))}
+      //     {value.length > 2 && (
+      //       <Badge variant="outline" className="text-xs">
+      //         +{value.length - 2}
+      //       </Badge>
+      //     )}
+      //   </div>
+      // ),
+      render: (value: string[]) => {
+        let roleLabel = "User"; // default
+
+        if (value.includes("ADMIN")) {
+          roleLabel = "Admin";
+        } else if (value.includes("USER")) {
+          roleLabel = "User";
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            <Badge variant="secondary" className="text-xs">
+              {roleLabel}
             </Badge>
-          ))}
-          {value.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{value.length - 2}
-            </Badge>
-          )}
-        </div>
-      ),
+          </div>
+        );
+      },
     },
     {
       key: "enabled" as keyof User,
@@ -660,8 +677,6 @@ export default function UsersPage() {
                 <SelectContent>
                   <SelectItem value="ADMIN">Admin</SelectItem>
                   <SelectItem value="USER">User</SelectItem>
-                  <SelectItem value="MODERATOR">Moderator</SelectItem>
-                  <SelectItem value="EDITOR">Editor</SelectItem>
                 </SelectContent>
               </Select>
             </div>

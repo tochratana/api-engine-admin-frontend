@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useAppSelector } from "@/lib/hooks";
 import { useFetchUsersQuery } from "@/lib/features/users/usersApi";
-// You'll need to create these RTK Query APIs similar to usersApi
 import { useFetchProjectsQuery } from "@/lib/features/projects/projectsApi";
 import { useFetchRatingsQuery } from "@/lib/features/ratings/ratingsApi";
 import { UserGrowthChart } from "@/components/charts/user-growth-chart";
@@ -25,8 +24,11 @@ export default function DashboardPage() {
 
   // RTK Query hooks - these will automatically fetch data and handle caching
   const { data: users = [], isLoading: usersLoading } = useFetchUsersQuery();
-  const { data: projects = [], isLoading: projectsLoading } =
-    useFetchProjectsQuery();
+
+  // Fixed: Handle the new ProjectsResponse structure
+  const { data: projectsData, isLoading: projectsLoading } =
+    useFetchProjectsQuery({});
+  const projects = projectsData?.projects || [];
 
   // Fixed: Use the correct data structure from ratingsApi
   const { data: ratingsData, isLoading: ratingsLoading } = useFetchRatingsQuery(
@@ -39,7 +41,7 @@ export default function DashboardPage() {
   // Calculate stats from the fetched data
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.enabled).length;
-  const totalProjects = projects.length;
+  const totalProjects = projectsData?.total || projects.length;
   const activeProjects = projects.filter((p) => p.status === "active").length;
 
   // Fixed: Use the correct field names and handle the transformed data
@@ -109,13 +111,13 @@ export default function DashboardPage() {
       user: user.email || user.username || "Unknown user",
     })),
 
-    // Add project activities
+    // Add project activities - Fixed to handle potential null owner
     ...projects.slice(0, 2).map((project) => ({
       action: "Project created",
       time: project.createdAt
         ? new Date(project.createdAt).toLocaleDateString()
         : "Recently",
-      user: project.owner?.email || project.owner?.username || "Unknown",
+      user: project.owner?.email || project.owner?.name || "Unknown",
     })),
 
     // Add rating activities - Fixed to handle the correct data structure
@@ -200,54 +202,53 @@ export default function DashboardPage() {
         <StorageUsageChart />
       </div>
 
-      <ActivityHeatmap />
+      <ActivityHeatmap
+        recentActivity={recentActivity}
+        isLoading={usersLoading || projectsLoading || ratingsLoading}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Activity className="h-5 w-5" />
-              <span>Recent Activity</span>
+              <span>Latest Actions</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {usersLoading || projectsLoading || ratingsLoading ? (
                 // Loading skeleton
-                Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-muted animate-pulse rounded-full"></div>
-                    <div className="flex-1 space-y-1">
-                      <div className="h-4 w-32 bg-muted animate-pulse rounded"></div>
-                      <div className="h-3 w-24 bg-muted animate-pulse rounded"></div>
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-muted animate-pulse rounded-full mt-2"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-full bg-muted animate-pulse rounded"></div>
+                      <div className="h-3 w-2/3 bg-muted animate-pulse rounded"></div>
                     </div>
                   </div>
                 ))
               ) : recentActivity.length > 0 ? (
-                recentActivity.map((activity, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center space-x-3 text-sm"
-                  >
-                    <div className="w-2 h-2 bg-accent rounded-full flex-shrink-0"></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-foreground truncate">
+                recentActivity.slice(0, 5).map((activity, index) => (
+                  <div key={index} className="flex items-start space-x-3 group">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full flex-shrink-0 mt-2 group-hover:scale-125 transition-transform"></div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {activity.action}
                       </p>
-                      <p className="text-muted-foreground text-xs truncate">
-                        {activity.user} • {activity.time}
-                      </p>
+                      <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                        <span className="truncate">{activity.user}</span>
+                        <span>•</span>
+                        <span>{activity.time}</span>
+                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
-                  <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                <div className="text-center py-6">
+                  <Activity className="h-6 w-6 text-muted-foreground mx-auto mb-2 opacity-50" />
                   <p className="text-muted-foreground text-sm">
-                    No recent activity found
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    Activity will appear here as users interact with your system
+                    No recent activity
                   </p>
                 </div>
               )}
@@ -312,6 +313,7 @@ export default function DashboardPage() {
                 <p>Recent Activity Items: {recentActivity.length}</p>
                 <p>Users: {users.length}</p>
                 <p>Projects: {projects.length}</p>
+                <p>Projects Data Total: {projectsData?.total || 0}</p>
                 <p>
                   Loading States: U:{usersLoading ? "Y" : "N"} P:
                   {projectsLoading ? "Y" : "N"} R:{ratingsLoading ? "Y" : "N"}

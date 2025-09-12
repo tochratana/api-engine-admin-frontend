@@ -13,7 +13,9 @@ import { FolderOpen, Loader2 } from "lucide-react";
 import { useFetchProjectsQuery } from "@/lib/features/projects/projectsApi";
 
 export function ProjectStatusChart() {
-  const { data: projects = [], isLoading, error } = useFetchProjectsQuery();
+  // Fixed: Handle the new ProjectsResponse structure
+  const { data: projectsData, isLoading, error } = useFetchProjectsQuery({});
+  const projects = projectsData?.projects || [];
 
   const generateProjectStatusData = () => {
     if (!projects.length) return [];
@@ -38,10 +40,12 @@ export function ProjectStatusChart() {
       color:
         statusColors[status as keyof typeof statusColors] ||
         "hsl(var(--muted))",
+      percentage: ((count / projects.length) * 100).toFixed(1),
     }));
   };
 
   const data = generateProjectStatusData();
+  const totalProjects = projectsData?.total || projects.length;
 
   if (isLoading) {
     return (
@@ -90,19 +94,48 @@ export function ProjectStatusChart() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
-            <p className="text-muted-foreground">No projects found</p>
+            <div className="text-center">
+              <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <p className="text-muted-foreground text-lg font-medium">
+                No projects found
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Projects will appear here once they are created
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  // Custom tooltip component
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-card border border-border rounded-lg shadow-md p-3">
+          <p className="font-medium text-card-foreground">{data.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {data.value} projects ({data.percentage}%)
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <FolderOpen className="h-5 w-5" />
-          <span>Project Status Distribution</span>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <FolderOpen className="h-5 w-5" />
+            <span>Project Status Distribution</span>
+          </div>
+          <div className="text-sm text-muted-foreground font-normal">
+            {totalProjects} total
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -121,22 +154,40 @@ export function ProjectStatusChart() {
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-                color: "hsl(var(--card-foreground))",
-              }}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Legend
               wrapperStyle={{
                 paddingTop: "20px",
                 fontSize: "14px",
               }}
+              formatter={(value, entry: any) => (
+                <span style={{ color: entry.color }}>
+                  {value} ({entry.payload.percentage}%)
+                </span>
+              )}
             />
           </PieChart>
         </ResponsiveContainer>
+
+        {/* Summary stats below the chart */}
+        <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
+          {data.slice(0, 4).map((item, index) => (
+            <div key={index} className="flex items-center space-x-2">
+              <div
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {item.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {item.value} ({item.percentage}%)
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

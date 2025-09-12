@@ -82,7 +82,7 @@ export function DataTable<T extends { id: string }>({
               {columns.map((column) => (
                 <TableHead key={column.key as string}>{column.label}</TableHead>
               ))}
-              <TableHead className="w-[70px]">Actions</TableHead>
+              {/* <TableHead className="w-[70px]">Actions</TableHead> */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -103,9 +103,9 @@ export function DataTable<T extends { id: string }>({
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        {/* <Button variant="ghost" size="icon">
                           <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        </Button> */}
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {onView && (

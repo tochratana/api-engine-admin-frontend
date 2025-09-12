@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.api-ngin.oudom.dev/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL;
 
 // Debug logging to check environment variable loading
 console.log("[v0] Environment check:");
