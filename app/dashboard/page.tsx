@@ -27,19 +27,32 @@ export default function DashboardPage() {
   const { data: users = [], isLoading: usersLoading } = useFetchUsersQuery();
   const { data: projects = [], isLoading: projectsLoading } =
     useFetchProjectsQuery();
-  const { data: ratings = [], isLoading: ratingsLoading } =
-    useFetchRatingsQuery();
+
+  // Fixed: Use the correct data structure from ratingsApi
+  const { data: ratingsData, isLoading: ratingsLoading } = useFetchRatingsQuery(
+    { size: 100 }
+  ); // Fetch more data for better stats
+
+  // Extract ratings array from the API response structure
+  const ratings = ratingsData?.ratings || [];
 
   // Calculate stats from the fetched data
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.enabled).length;
   const totalProjects = projects.length;
   const activeProjects = projects.filter((p) => p.status === "active").length;
-  const totalRatings = ratings.length;
+
+  // Fixed: Use the correct field names and handle the transformed data
+  const totalRatings = ratingsData?.totalRatings || ratings.length;
   const averageRating =
     ratings.length > 0
-      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+      ? ratings.reduce((sum, r) => {
+          // Handle both 'rating' (transformed) and 'star' (original API) fields
+          const ratingValue = r.rating || r.star || 0;
+          return sum + ratingValue;
+        }, 0) / ratings.length
       : 0;
+
   const totalStorage = projects.reduce(
     (sum, p) => sum + (p.storageUsed || 0),
     0
@@ -67,7 +80,12 @@ export default function DashboardPage() {
       value: averageRating.toFixed(1),
       icon: Star,
       change: `${totalRatings} reviews`,
-      changeType: "positive" as const,
+      changeType:
+        averageRating >= 4.0
+          ? "positive"
+          : averageRating >= 3.0
+          ? "neutral"
+          : ("negative" as const),
       isLoading: ratingsLoading,
     },
     {
@@ -82,22 +100,44 @@ export default function DashboardPage() {
 
   // Generate recent activity from all data sources
   const recentActivity = [
+    // Add user activities
     ...users.slice(0, 2).map((user) => ({
       action: "New user registered",
-      time: new Date(user.createdTimestamp).toLocaleDateString(),
-      user: user.email,
+      time: user.createdTimestamp
+        ? new Date(user.createdTimestamp).toLocaleDateString()
+        : "Recently",
+      user: user.email || user.username || "Unknown user",
     })),
+
+    // Add project activities
     ...projects.slice(0, 2).map((project) => ({
       action: "Project created",
-      time: new Date(project.createdAt).toLocaleDateString(),
-      user: project.owner?.email || "Unknown",
+      time: project.createdAt
+        ? new Date(project.createdAt).toLocaleDateString()
+        : "Recently",
+      user: project.owner?.email || project.owner?.username || "Unknown",
     })),
-    ...ratings.slice(0, 2).map((rating) => ({
-      action: "Rating submitted",
-      time: new Date(rating.createdAt).toLocaleDateString(),
-      user: rating.user.email,
+
+    // Add rating activities - Fixed to handle the correct data structure
+    ...ratings.slice(0, 3).map((rating) => ({
+      action: `${rating.rating || rating.star}-star rating submitted`,
+      time: rating.createdAt
+        ? new Date(rating.createdAt).toLocaleDateString()
+        : "Recently",
+      user:
+        rating.user?.email ||
+        rating.user?.name ||
+        rating.username ||
+        "Unknown user",
     })),
-  ].slice(0, 4);
+  ]
+    .sort((a, b) => {
+      // Sort by most recent first (if dates are available)
+      const dateA = new Date(a.time === "Recently" ? Date.now() : a.time);
+      const dateB = new Date(b.time === "Recently" ? Date.now() : b.time);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .slice(0, 6); // Show top 6 activities
 
   return (
     <div className="space-y-6">
@@ -189,19 +229,27 @@ export default function DashboardPage() {
                     key={index}
                     className="flex items-center space-x-3 text-sm"
                   >
-                    <div className="w-2 h-2 bg-accent rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-foreground">{activity.action}</p>
-                      <p className="text-muted-foreground text-xs">
+                    <div className="w-2 h-2 bg-accent rounded-full flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-foreground truncate">
+                        {activity.action}
+                      </p>
+                      <p className="text-muted-foreground text-xs truncate">
                         {activity.user} • {activity.time}
                       </p>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-muted-foreground text-sm">
-                  No recent activity
-                </p>
+                <div className="text-center py-8">
+                  <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <p className="text-muted-foreground text-sm">
+                    No recent activity found
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Activity will appear here as users interact with your system
+                  </p>
+                </div>
               )}
             </div>
           </CardContent>
@@ -213,34 +261,66 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left">
-                <Users className="h-6 w-6 text-accent mb-2" />
+              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left group">
+                <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform" />
                 <p className="font-medium text-foreground">Manage Users</p>
                 <p className="text-xs text-muted-foreground">
                   View and edit users
                 </p>
               </button>
-              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left">
-                <FolderOpen className="h-6 w-6 text-accent mb-2" />
+              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left group">
+                <FolderOpen className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform" />
                 <p className="font-medium text-foreground">View Projects</p>
                 <p className="text-xs text-muted-foreground">
                   Browse all projects
                 </p>
               </button>
-              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left">
-                <Star className="h-6 w-6 text-accent mb-2" />
+              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left group">
+                <Star className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform" />
                 <p className="font-medium text-foreground">Check Ratings</p>
-                <p className="text-xs text-muted-foreground">Review feedback</p>
+                <p className="text-xs text-muted-foreground">
+                  Review feedback ({totalRatings})
+                </p>
               </button>
-              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left">
-                <HardDrive className="h-6 w-6 text-accent mb-2" />
+              <button className="p-4 border border-border rounded-lg hover:bg-muted transition-colors text-left group">
+                <HardDrive className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform" />
                 <p className="font-medium text-foreground">Storage Stats</p>
-                <p className="text-xs text-muted-foreground">Monitor usage</p>
+                <p className="text-xs text-muted-foreground">
+                  {totalStorage.toFixed(1)} GB used
+                </p>
               </button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Debug info - Remove in production */}
+      {process.env.NODE_ENV === "development" && (
+        <Card className="border-dashed border-yellow-300 bg-yellow-50 dark:bg-yellow-900/10">
+          <CardHeader>
+            <CardTitle className="text-yellow-600">Debug Info</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-yellow-600">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p>Ratings Data: {ratingsData ? "Loaded" : "No data"}</p>
+                <p>Total Ratings: {totalRatings}</p>
+                <p>Ratings Array Length: {ratings.length}</p>
+                <p>Average Rating: {averageRating.toFixed(2)}</p>
+              </div>
+              <div>
+                <p>Recent Activity Items: {recentActivity.length}</p>
+                <p>Users: {users.length}</p>
+                <p>Projects: {projects.length}</p>
+                <p>
+                  Loading States: U:{usersLoading ? "Y" : "N"} P:
+                  {projectsLoading ? "Y" : "N"} R:{ratingsLoading ? "Y" : "N"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ export const usersApi = createApi({
           size: size.toString(),
           ...(search && { search }),
         });
-        return `/admin/users/paginated?${queryParams}`;
+        return `/admin/users/paginated`;
       },
       providesTags: ["User"],
     }),
