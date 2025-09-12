@@ -62,6 +62,32 @@ interface Project {
   hasUsageData: boolean;
 }
 
+// Add this interface near your other interfaces
+interface ProjectStatistics {
+  totalProjects: number;
+  uniqueUsers: number;
+  recentProjects: number;
+  activeProjects: number;
+  totalStorageUsed: number;
+  totalApiCallsToday: number;
+  projectsWithUsageData: number;
+  projectsWithoutUsageData: number;
+  averageProjectsPerUser: number;
+}
+
+// In your projectsApi.ts file, update the AdminProjectStatistics interface
+interface AdminProjectStatistics {
+  totalProjects: number;
+  uniqueUsers: number;
+  recentProjects: number;
+  activeProjects: number;
+  totalStorageUsed: number;
+  totalApiCallsToday: number;
+  projectsWithUsageData: number;
+  projectsWithoutUsageData: number;
+  averageProjectsPerUser: number;
+}
+
 export default function ProjectsPage() {
   const { toast } = useToast();
 
@@ -111,6 +137,9 @@ export default function ProjectsPage() {
   //   status: statusFilter,
   //   type: typeFilter,
   // });
+
+  const { data: statisticsData, isLoading: statisticsLoading } =
+    useGetProjectStatisticsQuery();
 
   const { data: projectWithUser, isLoading: projectWithUserLoading } =
     useGetProjectWithUserQuery(viewDialog.project?.projectUuid || "", {
@@ -380,8 +409,8 @@ export default function ProjectsPage() {
           </Button>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* card for statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -390,8 +419,16 @@ export default function ProjectsPage() {
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalProjects}</div>
-            <p className="text-xs text-muted-foreground">+5% from last month</p>
+            <div className="text-2xl font-bold">
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                statisticsData?.totalProjects || 0
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {statisticsData?.uniqueUsers || 0} unique users
+            </p>
           </CardContent>
         </Card>
 
@@ -403,38 +440,97 @@ export default function ProjectsPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeProjects}</div>
-            <p className="text-xs text-muted-foreground">Currently running</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{completedProjects}</div>
+            <div className="text-2xl font-bold">
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                statisticsData?.activeProjects || 0
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Successfully finished
+              {statisticsData?.recentProjects || 0} recent
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Storage</CardTitle>
-            <Archive className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
+            <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatBytes(totalStorage)}
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                formatBytes(statisticsData?.totalStorageUsed || 0)
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Across all projects</p>
+            <p className="text-xs text-muted-foreground">Total storage usage</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              API Calls Today
+            </CardTitle>
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                statisticsData?.totalApiCallsToday?.toLocaleString() || 0
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Today's API requests
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Projects with Usage
+            </CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                statisticsData?.projectsWithUsageData || 0
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {statisticsData?.projectsWithoutUsageData || 0} without usage
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg per User</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statisticsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                statisticsData?.averageProjectsPerUser?.toFixed(1) || 0
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Projects per user average
+            </p>
           </CardContent>
         </Card>
       </div>
-
       {error && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -444,7 +540,6 @@ export default function ProjectsPage() {
           </AlertDescription>
         </Alert>
       )}
-
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -488,7 +583,6 @@ export default function ProjectsPage() {
           )}
         </CardContent>
       </Card>
-
       <Dialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ open, project: null })}
@@ -522,7 +616,6 @@ export default function ProjectsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog
         open={viewDialog.open}
         onOpenChange={(open) => setViewDialog({ open, project: null })}
@@ -658,7 +751,6 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              {/* API Usage Section */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
                   <Server className="h-5 w-5 text-primary" />
