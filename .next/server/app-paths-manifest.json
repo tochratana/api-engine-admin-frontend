@@ -1,8 +1,10 @@
 {
-  "/dashboard/storage/page": "app/dashboard/storage/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
   "/dashboard/users/page": "app/dashboard/users/page.js",
-  "/dashboard/ratings/page": "app/dashboard/ratings/page.js",
+  "/dashboard/storage/page": "app/dashboard/storage/page.js",
   "/dashboard/projects/page": "app/dashboard/projects/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/ratings/page": "app/dashboard/ratings/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }
