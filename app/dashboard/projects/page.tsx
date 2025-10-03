@@ -141,6 +141,8 @@ export default function ProjectsPage() {
   const { data: statisticsData, isLoading: statisticsLoading } =
     useGetProjectStatisticsQuery();
 
+    console.log("Data",statisticsData);
+
   const { data: projectWithUser, isLoading: projectWithUserLoading } =
     useGetProjectWithUserQuery(viewDialog.project?.projectUuid || "", {
       skip: !viewDialog.project?.projectUuid,

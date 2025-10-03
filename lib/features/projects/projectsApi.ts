@@ -21,7 +21,7 @@ interface Project {
   type: "web" | "mobile" | "api" | "database";
   createdAt: string;
   updatedAt: string;
-  storageUsed: number;
+  totalStorageBytes: number;
   apiCalls: number;
 }
 

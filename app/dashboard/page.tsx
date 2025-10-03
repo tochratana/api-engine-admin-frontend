@@ -42,7 +42,11 @@ export default function DashboardPage() {
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.enabled).length;
   const totalProjects = projectsData?.total || projects.length;
-  const activeProjects = projects.filter((p) => p.status === "active").length;
+  const activeProjects = projects.filter(
+    (p) => p.status?.toLowerCase() === "active"
+  ).length;
+
+  console.log("Active Projects:", activeProjects);
 
   // Fixed: Use the correct field names and handle the transformed data
   const totalRatings = ratingsData?.totalRatings || ratings.length;
@@ -56,9 +60,24 @@ export default function DashboardPage() {
       : 0;
 
   const totalStorage = projects.reduce(
-    (sum, p) => sum + (p.storageUsed || 0),
+    (sum, p) => sum + (p.totalStorageBytes || 0),
     0
   );
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return "0 Bytes";
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
+
+  console.log("Data :", projects);
+  console.log("Total Storage : ", totalStorage);
 
   const stats = [
     {
@@ -71,7 +90,7 @@ export default function DashboardPage() {
     },
     {
       title: "Active Projects",
-      value: activeProjects.toLocaleString(),
+      value: activeProjects,
       icon: FolderOpen,
       change: `${totalProjects} total`,
       changeType: "positive" as const,
@@ -92,7 +111,7 @@ export default function DashboardPage() {
     },
     {
       title: "Storage Used",
-      value: `${totalStorage.toFixed(1)} GB`,
+      value: formatBytes(totalStorage),
       icon: HardDrive,
       change: `${projects.length} projects`,
       changeType: "neutral" as const,

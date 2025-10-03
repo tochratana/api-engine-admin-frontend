@@ -21,6 +21,8 @@ interface Rating {
   createdAt?: string;
   respondedAt?: string;
   adminResponse?: string;
+  rating:number;
+  comment:string
 }
 
 // Updated to match your API's paginated response structure

@@ -1,4 +1,4 @@
-// File: /Users/tochratana/Project/api-engine-admin-frontend/app/dashboard/ratings/page.tsx
+// File: /Users/tochratana/Documents/api-engine-admin-frontend/app/dashboard/ratings/page.tsx
 import * as entry from '../../../../../app/dashboard/ratings/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
