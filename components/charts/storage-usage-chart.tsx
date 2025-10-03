@@ -1,8 +1,17 @@
-"use client"
+"use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { HardDrive } from "lucide-react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HardDrive } from "lucide-react";
+import { useFetchProjectsQuery } from "@/lib/features/projects/projectsApi";
 
 const data = [
   { category: "Projects", used: 12.5, quota: 20 },
@@ -10,9 +19,17 @@ const data = [
   { category: "System", used: 8.7, quota: 15 },
   { category: "Backups", used: 15.3, quota: 25 },
   { category: "Temp", used: 2.1, quota: 5 },
-]
+];
 
 export function StorageUsageChart() {
+  
+  // Fixed: Handle the new ProjectsResponse structure
+  const { data: projectsData, isLoading: projectsLoading } =
+    useFetchProjectsQuery({});
+  const projects = projectsData?.projects || [];
+
+  console.log("Data : ", projects);
+
   return (
     <Card>
       <CardHeader>
@@ -25,7 +42,11 @@ export function StorageUsageChart() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="category" className="text-muted-foreground" fontSize={12} />
+            <XAxis
+              dataKey="category"
+              className="text-muted-foreground"
+              fontSize={12}
+            />
             <YAxis className="text-muted-foreground" fontSize={12} />
             <Tooltip
               contentStyle={{
@@ -34,13 +55,27 @@ export function StorageUsageChart() {
                 borderRadius: "8px",
                 color: "hsl(var(--card-foreground))",
               }}
-              formatter={(value, name) => [`${value} GB`, name === "used" ? "Used" : "Quota"]}
+              formatter={(value, name) => [
+                `${value} GB`,
+                name === "used" ? "Used" : "Quota",
+              ]}
             />
-            <Bar dataKey="used" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} name="Used" />
-            <Bar dataKey="quota" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} opacity={0.3} name="Quota" />
+            <Bar
+              dataKey="used"
+              fill="hsl(var(--chart-1))"
+              radius={[4, 4, 0, 0]}
+              name="Used"
+            />
+            <Bar
+              dataKey="quota"
+              fill="hsl(var(--chart-2))"
+              radius={[4, 4, 0, 0]}
+              opacity={0.3}
+              name="Quota"
+            />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
-  )
+  );
 }

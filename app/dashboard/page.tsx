@@ -43,10 +43,11 @@ export default function DashboardPage() {
   const activeUsers = users.filter((u) => u.enabled).length;
   const totalProjects = projectsData?.total || projects.length;
   const activeProjects = projects.filter(
-    (p) => p.status?.toLowerCase() === "active"
-  ).length;
+  (p) => p.status?.toLowerCase() === "active"
+).length;
 
-  console.log("Active Projects:", activeProjects);
+console.log("Active Projects:", activeProjects);
+
 
   // Fixed: Use the correct field names and handle the transformed data
   const totalRatings = ratingsData?.totalRatings || ratings.length;
