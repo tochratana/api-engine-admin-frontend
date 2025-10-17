@@ -19,96 +19,153 @@ export function ActivityHeatmap({
   recentActivity = [],
   isLoading = false,
 }: ActivityHeatmapProps) {
-  // Generate heatmap data from real activity
-  const generateHeatmapFromActivity = () => {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+  // Generate GitHub-style heatmap (full year)
+  const generateGitHubStyleHeatmap = () => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const today = new Date();
 
-    // Initialize with zero activity
-    const heatmapData = days.map((day) => ({
+    // Calculate start date (52 weeks ago from today)
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 52 * 7);
+    // Adjust to start from Sunday
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+
+    // Initialize grid: 7 rows (days of week) x 53 columns (weeks)
+    const grid = days.map((day, dayIndex) => ({
       day,
-      hours: hours.map((hour) => ({
-        hour,
-        activity: 0,
-        activities: [] as ActivityItem[],
-      })),
+      dayIndex,
+      weeks: [] as Array<{
+        date: Date;
+        activity: number;
+        activities: ActivityItem[];
+        isCurrentMonth: boolean;
+      }>,
     }));
+
+    // Fill the grid with all dates for 53 weeks
+    for (let week = 0; week < 53; week++) {
+      for (let day = 0; day < 7; day++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + week * 7 + day);
+
+        // Only add dates up to today
+        if (date <= today) {
+          grid[day].weeks.push({
+            date: new Date(date),
+            activity: 0,
+            activities: [],
+            isCurrentMonth: date.getMonth() === today.getMonth(),
+          });
+        }
+      }
+    }
 
     // Process real activity data
     recentActivity.forEach((activity) => {
       const activityDate = new Date(
         activity.time === "Recently" ? new Date() : activity.time
       );
-      const dayIndex = (activityDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-      const hour = activityDate.getHours();
 
-      if (dayIndex < 7 && hour < 24) {
-        const dayData = heatmapData[dayIndex];
-        const hourData = dayData.hours[hour];
-        hourData.activity = Math.min(hourData.activity + 1, 4); // Cap at level 4
-        hourData.activities.push(activity);
+      const dayOfWeek = activityDate.getDay();
+
+      // Find matching date in grid
+      const dayRow = grid[dayOfWeek];
+      const matchingCell = dayRow.weeks.find((cell) => {
+        return (
+          cell.date.getFullYear() === activityDate.getFullYear() &&
+          cell.date.getMonth() === activityDate.getMonth() &&
+          cell.date.getDate() === activityDate.getDate()
+        );
+      });
+
+      if (matchingCell) {
+        matchingCell.activity = Math.min(matchingCell.activity + 1, 4);
+        matchingCell.activities.push(activity);
       }
     });
 
-    // Add some baseline activity for demo purposes if no real data
+    // Add demo data if no real activity (optional - remove if you want)
     if (recentActivity.length === 0) {
-      heatmapData.forEach((day) => {
-        day.hours.forEach((hour) => {
-          // Simulate realistic activity patterns (more during work hours)
-          const isWorkHour = hour.hour >= 9 && hour.hour <= 17;
-          const isWeekend = day.day === "Sat" || day.day === "Sun";
+      grid.forEach((row) => {
+        row.weeks.forEach((cell) => {
+          const isWeekend =
+            cell.date.getDay() === 0 || cell.date.getDay() === 6;
+          const isPast = cell.date < today;
+          const randomChance = Math.random();
 
-          if (isWorkHour && !isWeekend) {
-            hour.activity = Math.floor(Math.random() * 4) + 1;
-          } else if (!isWeekend) {
-            hour.activity = Math.floor(Math.random() * 3);
-          } else {
-            hour.activity = Math.floor(Math.random() * 2);
+          if (isPast && randomChance > 0.3) {
+            if (!isWeekend) {
+              cell.activity = Math.floor(Math.random() * 5);
+            } else {
+              cell.activity = Math.floor(Math.random() * 3);
+            }
           }
         });
       });
     }
 
-    return heatmapData;
+    return grid;
   };
 
-  const heatmapData = generateHeatmapFromActivity();
+  const heatmapData = generateGitHubStyleHeatmap();
 
-  // Calculate total activity for the week
+  // Calculate total activity
   const totalActivity = heatmapData.reduce(
-    (sum, day) =>
-      sum + day.hours.reduce((daySum, hour) => daySum + hour.activity, 0),
+    (sum, row) =>
+      sum + row.weeks.reduce((weekSum, cell) => weekSum + cell.activity, 0),
     0
   );
 
-  // Find peak activity time
-  const peakActivity = heatmapData.reduce(
-    (peak, day) => {
-      const dayPeak = day.hours.reduce(
-        (hourPeak, hour) =>
-          hour.activity > hourPeak.activity
-            ? { day: day.day, hour: hour.hour, activity: hour.activity }
-            : hourPeak,
-        { day: day.day, hour: 0, activity: 0 }
-      );
-
-      return dayPeak.activity > peak.activity ? dayPeak : peak;
-    },
-    { day: "", hour: 0, activity: 0 }
+  // Calculate active days
+  const activeDays = heatmapData.reduce(
+    (count, row) =>
+      count + row.weeks.filter((cell) => cell.activity > 0).length,
+    0
   );
+
+  // Calculate current streak
+  const calculateStreak = () => {
+    const today = new Date();
+    let streak = 0;
+
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() - i);
+
+      const dayOfWeek = checkDate.getDay();
+      const dayRow = heatmapData[dayOfWeek];
+      const cell = dayRow?.weeks.find((c) => {
+        return (
+          c.date.getFullYear() === checkDate.getFullYear() &&
+          c.date.getMonth() === checkDate.getMonth() &&
+          c.date.getDate() === checkDate.getDate()
+        );
+      });
+
+      if (cell && cell.activity > 0) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+
+    return streak;
+  };
+
+  const currentStreak = calculateStreak();
 
   const getActivityColor = (level: number) => {
     switch (level) {
       case 0:
         return "bg-slate-100 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50";
       case 1:
-        return "bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200/50 dark:border-emerald-700/50 shadow-sm";
+        return "bg-emerald-200 dark:bg-emerald-900/40 border border-emerald-300/50 dark:border-emerald-700/50";
       case 2:
-        return "bg-emerald-200 dark:bg-emerald-800/50 border border-emerald-300/50 dark:border-emerald-600/50 shadow-sm";
+        return "bg-emerald-300 dark:bg-emerald-700/60 border border-emerald-400/50 dark:border-emerald-600/50";
       case 3:
-        return "bg-emerald-400 dark:bg-emerald-600/70 border border-emerald-500/50 dark:border-emerald-500/50 shadow-md";
+        return "bg-emerald-500 dark:bg-emerald-600/80 border border-emerald-600/50 dark:border-emerald-500/50";
       case 4:
-        return "bg-emerald-500 dark:bg-emerald-500/90 border border-emerald-600/50 dark:border-emerald-400/50 shadow-lg";
+        return "bg-emerald-600 dark:bg-emerald-500 border border-emerald-700/50 dark:border-emerald-400/50";
       default:
         return "bg-slate-100 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/50";
     }
@@ -119,28 +176,52 @@ export function ActivityHeatmap({
       case 0:
         return "No activity";
       case 1:
-        return "Light activity";
+        return "1-2 activities";
       case 2:
-        return "Moderate activity";
+        return "3-5 activities";
       case 3:
-        return "High activity";
+        return "6-10 activities";
       case 4:
-        return "Very high activity";
+        return "10+ activities";
       default:
         return "No activity";
     }
   };
 
-  const formatTime = (hour: number) => {
-    if (hour === 0) return "12 AM";
-    if (hour === 12) return "12 PM";
-    if (hour < 12) return `${hour} AM`;
-    return `${hour - 12} PM`;
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
+
+  const getMonthLabels = () => {
+    if (heatmapData.length === 0 || heatmapData[0].weeks.length === 0)
+      return [];
+
+    const labels: Array<{ month: string; startIndex: number }> = [];
+    let currentMonth = -1;
+
+    heatmapData[0].weeks.forEach((cell, index) => {
+      const month = cell.date.getMonth();
+      if (month !== currentMonth) {
+        currentMonth = month;
+        labels.push({
+          month: cell.date.toLocaleDateString("en-US", { month: "short" }),
+          startIndex: index,
+        });
+      }
+    });
+
+    return labels;
+  };
+
+  const monthLabels = getMonthLabels();
 
   return (
     <Card className="relative overflow-hidden">
-      {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/30 via-transparent to-blue-50/30 dark:from-emerald-900/10 dark:via-transparent dark:to-blue-900/10" />
 
       <CardHeader className="relative">
@@ -150,9 +231,9 @@ export function ActivityHeatmap({
               <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <span className="text-lg font-semibold">Activity Heatmap</span>
+              <span className="text-lg font-semibold">Activity Graph</span>
               <p className="text-sm text-muted-foreground font-normal">
-                Last 7 days activity pattern
+                {activeDays} contributions in the last year
               </p>
             </div>
           </CardTitle>
@@ -163,110 +244,121 @@ export function ActivityHeatmap({
               <span className="text-muted-foreground">Total: </span>
               <span className="font-semibold">{totalActivity}</span>
             </div>
-            {peakActivity.activity > 0 && (
+            {currentStreak > 0 && (
               <div className="text-xs text-muted-foreground">
-                Peak: {peakActivity.day} {formatTime(peakActivity.hour)}
+                🔥 {currentStreak} day streak
               </div>
             )}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="relative space-y-6">
+      <CardContent className="relative space-y-4">
         {isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-2">
-                <div className="w-10 h-4 bg-muted animate-pulse rounded" />
-                <div className="flex-1 grid grid-cols-24 gap-1">
-                  {Array.from({ length: 24 }).map((_, j) => (
-                    <div
-                      key={j}
-                      className="h-4 bg-muted animate-pulse rounded-sm"
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="h-32 flex items-center justify-center">
+            <div className="animate-pulse text-muted-foreground">
+              Loading activity...
+            </div>
           </div>
         ) : (
           <>
-            {/* Time labels */}
-            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-              <div className="w-10" /> {/* Spacer for day labels */}
-              <div className="flex-1 grid grid-cols-6 gap-1 text-center">
-                <span>12 AM</span>
-                <span>4 AM</span>
-                <span>8 AM</span>
-                <span>12 PM</span>
-                <span>4 PM</span>
-                <span>8 PM</span>
+            {/* Month labels */}
+            <div className="flex items-start space-x-2">
+              <div className="w-8" />
+              <div className="flex-1 relative" style={{ height: "16px" }}>
+                {monthLabels.map((label, index) => (
+                  <div
+                    key={index}
+                    className="absolute text-xs text-muted-foreground font-medium"
+                    style={{
+                      left: `${
+                        (label.startIndex /
+                          (heatmapData[0]?.weeks.length || 1)) *
+                        100
+                      }%`,
+                    }}
+                  >
+                    {label.month}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Heatmap grid */}
-            <div className="space-y-2">
-              {heatmapData.map((dayData, dayIndex) => (
-                <div
-                  key={dayData.day}
-                  className="flex items-center space-x-2 group"
-                >
-                  <div className="w-10 text-sm font-medium text-muted-foreground text-right">
-                    {dayData.day}
-                  </div>
-                  <div className="flex-1 grid grid-cols-24 gap-1">
-                    {dayData.hours.map((hourData, hourIndex) => (
-                      <div
-                        key={hourData.hour}
-                        className={cn(
-                          "h-4 rounded-sm transition-all duration-200 hover:scale-110 hover:z-10 relative cursor-pointer",
-                          getActivityColor(hourData.activity),
-                          "hover:shadow-lg"
-                        )}
-                        title={`${dayData.day} ${formatTime(
-                          hourData.hour
-                        )}\n${getActivityLabel(hourData.activity)}${
-                          hourData.activities.length > 0
-                            ? `\n${
-                                hourData.activities.length
-                              } activities:\n${hourData.activities
-                                .map((a) => `• ${a.action}`)
-                                .join("\n")}`
-                            : ""
-                        }`}
-                      />
-                    ))}
-                  </div>
+            {/* GitHub-style grid */}
+            <div className="flex items-start space-x-2 overflow-x-auto pb-2">
+              {/* Day labels */}
+              <div className="flex flex-col space-y-1 text-xs text-muted-foreground w-8 pt-1 flex-shrink-0">
+                <div className="h-3" />
+                <div className="h-3">Mon</div>
+                <div className="h-3" />
+                <div className="h-3">Wed</div>
+                <div className="h-3" />
+                <div className="h-3">Fri</div>
+                <div className="h-3" />
+              </div>
+
+              {/* Activity grid */}
+              <div className="flex-1 min-w-0">
+                <div className="inline-flex flex-col space-y-1">
+                  {heatmapData.map((row, rowIndex) => (
+                    <div key={row.day} className="flex space-x-1">
+                      {row.weeks.map((cell, cellIndex) => (
+                        <div
+                          key={cellIndex}
+                          className={cn(
+                            "w-3 h-3 rounded-sm transition-all duration-200 hover:scale-125 hover:z-10 cursor-pointer flex-shrink-0",
+                            getActivityColor(cell.activity),
+                            "hover:shadow-lg hover:ring-2 hover:ring-emerald-400/50"
+                          )}
+                          title={`${formatDate(cell.date)}\n${getActivityLabel(
+                            cell.activity
+                          )}${
+                            cell.activities.length > 0
+                              ? `\n\n${
+                                  cell.activities.length
+                                } activities:\n${cell.activities
+                                  .slice(0, 5)
+                                  .map((a) => `• ${a.action}`)
+                                  .join("\n")}${
+                                  cell.activities.length > 5
+                                    ? `\n... and ${
+                                        cell.activities.length - 5
+                                      } more`
+                                    : ""
+                                }`
+                              : ""
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
 
-            {/* Legend and stats */}
+            {/* Legend */}
             <div className="flex items-center justify-between pt-4 border-t border-border/50">
               <div className="flex items-center space-x-4">
-                <span className="text-xs text-muted-foreground">
-                  Activity Level:
-                </span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground">Less</span>
-                  <div className="flex space-x-1">
-                    {[0, 1, 2, 3, 4].map((level) => (
-                      <div
-                        key={level}
-                        className={cn(
-                          "w-4 h-4 rounded-sm transition-all",
-                          getActivityColor(level)
-                        )}
-                        title={getActivityLabel(level)}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">More</span>
+                <span className="text-xs text-muted-foreground">Less</span>
+                <div className="flex space-x-1">
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <div
+                      key={level}
+                      className={cn(
+                        "w-3 h-3 rounded-sm transition-all",
+                        getActivityColor(level)
+                      )}
+                      title={getActivityLabel(level)}
+                    />
+                  ))}
                 </div>
+                <span className="text-xs text-muted-foreground">More</span>
               </div>
 
               <div className="text-xs text-muted-foreground">
-                Based on {recentActivity.length} recent activities
+                {recentActivity.length > 0
+                  ? `${recentActivity.length} activities tracked`
+                  : "Demo data shown"}
               </div>
             </div>
           </>

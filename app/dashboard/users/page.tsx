@@ -69,6 +69,7 @@ export default function UsersPage() {
   // Local state for pagination and search
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [pageSize] = useState(10); // You can make this configurable
 
   // RTK Query hooks
   const {
@@ -76,9 +77,11 @@ export default function UsersPage() {
     isLoading,
     error,
     refetch,
+    isFetching,
   } = useFetchUsersPaginatedQuery({
     page: currentPage,
     search: searchTerm,
+    size: pageSize, // Pass page size if your API supports it
   });
 
   const [deleteUser, { isLoading: deleteLoading }] = useDeleteUserMutation();
@@ -88,10 +91,18 @@ export default function UsersPage() {
     useRemoveRoleFromUserMutation();
   const [updateUser, { isLoading: updateLoading }] = useUpdateUserMutation();
 
-  // Extract data from response
+  // Extract data from response with fallbacks
   const users = usersResponse?.content || usersResponse?.users || [];
   const totalUsers = usersResponse?.totalElements || usersResponse?.total || 0;
-  const totalPages = usersResponse?.totalPages || Math.ceil(totalUsers / 10);
+  const totalPages =
+    usersResponse?.totalPages || Math.ceil(totalUsers / pageSize) || 1;
+
+  console.log("Pagination Info:", {
+    currentPage,
+    totalPages,
+    totalUsers,
+    usersOnPage: users.length,
+  });
 
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -142,6 +153,8 @@ export default function UsersPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    // Optionally scroll to top of table
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleRefresh = () => {
@@ -185,6 +198,11 @@ export default function UsersPage() {
           description: "User deleted successfully",
         });
         setDeleteDialog({ open: false, user: null });
+
+        // If we deleted the last user on a page, go back one page
+        if (users.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        }
       } catch (error) {
         toast({
           title: "Error",
@@ -278,24 +296,8 @@ export default function UsersPage() {
     {
       key: "roles" as keyof User,
       label: "Roles",
-      // render: (value: string[]) => (
-      //   <div className="flex flex-wrap gap-1">
-      //     {value.slice(0, 2).map((role, index) => (
-      //       <Badge key={index} variant="secondary" className="text-xs">
-      //         {role === "ADMIN"
-      //           ? "Admin"
-      //           : role.replace("default-roles-", "").replace("_", " ")}
-      //       </Badge>
-      //     ))}
-      //     {value.length > 2 && (
-      //       <Badge variant="outline" className="text-xs">
-      //         +{value.length - 2}
-      //       </Badge>
-      //     )}
-      //   </div>
-      // ),
       render: (value: string[]) => {
-        let roleLabel = "User"; // default
+        let roleLabel = "User";
 
         if (value.includes("ADMIN")) {
           roleLabel = "Admin";
@@ -400,10 +402,12 @@ export default function UsersPage() {
           <Button
             variant="outline"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isLoading || isFetching}
           >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 mr-2 ${
+                isLoading || isFetching ? "animate-spin" : ""
+              }`}
             />
             Refresh
           </Button>
@@ -480,7 +484,12 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Users</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>All Users</CardTitle>
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages} ({totalUsers} total users)
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -494,7 +503,8 @@ export default function UsersPage() {
             isLoading={isLoading}
           />
 
-          {totalPages > 1 && (
+          {/* Always show pagination if there are users */}
+          {totalUsers > 0 && (
             <div className="mt-6">
               <Pagination
                 currentPage={currentPage}
@@ -524,7 +534,7 @@ export default function UsersPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setDeleteDialog({ open: false, user: null })}
+              onClick={() => setDeleteDialog({ open, user: null })}
             >
               Cancel
             </Button>

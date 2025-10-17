@@ -21,8 +21,8 @@ interface Rating {
   createdAt?: string;
   respondedAt?: string;
   adminResponse?: string;
-  rating:number;
-  comment:string
+  rating: number;
+  comment: string;
 }
 
 // Updated to match your API's paginated response structure
@@ -72,8 +72,7 @@ interface FetchRatingsParams {
   size?: number; // Changed from 'limit' to 'size' to match your API
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.api-ngin.oudom.dev/api";
+const API_BASE_URL = "https://api.api-ngin.oudom.dev/api"
 
 export const ratingsApi = createApi({
   reducerPath: "ratingsApi",
@@ -110,7 +109,7 @@ export const ratingsApi = createApi({
           params.append("sentiment", sentiment);
         if (status && status !== "all") params.append("status", status);
 
-        return `/reviews?${params.toString()}`;
+        return `/v1/reviews?${params.toString()}`;
       },
       transformResponse: (response: ApiPaginatedResponse): RatingsResponse => {
         // Transform the API response to match what your component expects
